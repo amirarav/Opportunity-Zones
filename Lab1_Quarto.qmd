@@ -1,0 +1,139 @@
+---
+title: "Lab 1: Opportunity Zones"
+author: "Amira Ravshanova"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+### [Section 1]{.underline}
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+library(tidyverse)
+library(DataExplorer)
+
+data <- read_csv("oz_analysis.csv")
+
+data <- data |> 
+  mutate(DesignatedOZ = 
+           ifelse(is.na(DesignatedOZ), 
+                  "Not Designated", "Designated"))
+
+ozs <- data |> 
+  filter(Type != "Not Eligible")
+```
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+ozs |> 
+  group_by(county, DesignatedOZ) |> 
+  summarise(
+    Income = median(medhhincome, na.rm=TRUE))
+```
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+ozs |> 
+  group_by(county, DesignatedOZ) |> 
+  summarise(
+    Income = median(medhhincome, na.rm=TRUE)) |> 
+  ggplot(aes(x = reorder(county, -Income), y = Income, fill = DesignatedOZ)) + 
+  geom_col(position = "dodge") + 
+  scale_y_continuous(labels = scales::dollar) +
+  labs(x = "County", 
+       y = "Median Household Income",
+       title = "Median Household Income in Opportunity Zone Eligible Tracts", 
+       subtitle = "State of Massachusetts", 
+       caption = "Source: Urban Institute (2021)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+In every county except Dukes, designated tracts have a lower median household income than eligible tracts that were not designated. The gap varies a lot by county. It is largest in Hampshire and Franklin, and smallest in Bristol and Plymouth. Dukes County shows only one bar because none of its eligible tracts were designated.
+
+#### 
+
+### [Section 2]{.underline}
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+income_diff <- ozs |> 
+  group_by(county, DesignatedOZ) |> 
+  summarise(Income = median(medhhincome, na.rm = TRUE)) |> 
+  pivot_wider(names_from = DesignatedOZ, values_from = Income) |> 
+  mutate(Difference = `Not Designated` - Designated)
+
+income_diff |> 
+  arrange(desc(Difference))
+```
+
+Hampshire County has the greatest disparity in median household income between designated and non-designated tracts.
+
+Dukes County shows NA because none of its eligible tracts were designated, so there is no designated median to subtract. I left it as NA instead of making it 0, since 0 would falsely suggest the two groups had equal incomes.
+
+#### 
+
+### [Section 3]{.underline}
+
+#### Part 1
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+ozs |> 
+  ggplot(aes(x = DesignatedOZ, y = PovertyRate, fill = DesignatedOZ)) +
+  geom_violin(trim = TRUE, alpha = 0.5) +
+  geom_boxplot(width = 0.2, color = "black", alpha = 0.7) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Opportunity Zone Eligible Tracts",
+       y = "Poverty Rate",
+       title = "Distribution of Poverty Rate in Opportunity Zone Eligible Tracts",
+       subtitle = "State of Massachusetts",
+       caption = "Source: Urban Institute (2021)") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+The two distributions overlap a lot, but designated tracts tend to have higher poverty rates than non-designated tracts.
+
+###### 
+
+#### Part 2
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+ozs |> 
+  ggplot(aes(x = BAorhigher, y = PovertyRate, color = DesignatedOZ)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Population with a Bachelor's Degree or Higher",
+       y = "Poverty Rate",
+       color = "Tracts",
+       title = "Poverty Rate vs. Educational Attainment in Opportunity Zone Eligible Tracts",
+       subtitle = "State of Massachusetts",
+       caption = "Source: Urban Institute (2021)") +
+  theme_bw()
+```
+
+Poverty rate and educational attainment show a negative relationship where tracts with a higher share of residents holding a bachelor's degree tend to have lower poverty rates. The relationship is steeper in designated tracts than non-designated tracts.
+
+The flatter line for non-designated tracts is pulled by a cluster of tracts with both high education (60–90% with a BA) and high poverty (30–60%). These are probably neighborhoods with large college student populations like Cambridge or Boston because students usually report low incomes, which raises the measured poverty rate even though residents are highly educated.
+
+###### 
+
+#### Part 3
+
+**Question 1: Why were some eligible tracts chosen over others?** Designated tracts were poorer on average but in counties like Hampshire and Franklin the gap was very large, and some higher-income tracts were designated while poorer ones were not. I would want to know what other factors shaped the governor's choices. Helpful data would include tract boundaries (to map proximity to downtowns, universities, transit, etc.) and records of pre-2018 development activity like building permits or planned projects.
+
+**Question 2: Did designation change these neighborhoods and who benefited?** Critics argue OZ investment can lead to displacement. To test this, I would compare how designated and eligible but not designated tracts changed after 2018. This would require newer Census/ACS data on income, rent, rent burden, and racial composition, as well as data on where OZ funds actually invested, property sales, and eviction records.
